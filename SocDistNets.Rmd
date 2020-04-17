@@ -21,7 +21,61 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(igraph)
+library(networkD3)
 library(flexdashboard)
+
+make_D3_network <- function(network, charge = -30,..., group = 1){
+  
+  connected_nodes <-
+    do.call('rbind', lapply(network$mel, function(x)
+      data.frame(x)))
+  node_names <-
+    do.call('rbind', lapply(network$val, function(x)
+      data.frame(x)))$vertex.names  
+  
+  if(!is.null(connected_nodes)){
+    links <-
+      data.frame(
+        source = connected_nodes[[2]],
+        target = connected_nodes[[1]],
+        value = 1
+      )
+  } else{
+    links <-
+      data.frame(
+        source = node_names,
+        target = node_names,
+        value = 0
+      )
+  }
+  
+  
+  nodes <-
+    data.frame(
+      name = node_names,
+      group = group,
+      size = 1
+    )
+      
+  
+  network_ig <- igraph::graph.data.frame(links,nodes,directed = FALSE)
+  network_ig_data <- networkD3::igraph_to_networkD3(network_ig)
+  network_ig_data$nodes$group = group
+  networkD3::forceNetwork(
+    Links = network_ig_data$links,
+    Nodes = network_ig_data$nodes,
+    NodeID = "name",
+    Group = "group",
+    Source = "source",
+    Target = "target",
+    Value = "value",
+    zoom = TRUE,
+    bounded = FALSE,
+    charge = charge,
+    opacity = 1, ...
+  )
+}
 ```
 
 ### __The Situation__ <br/> COVID-19 is raging around the world, and you and your family have been asked (OK, told) to stay home and practice social distancing.
@@ -74,7 +128,8 @@ Let's put a few numbers on it for comparison to later scenarios:
 ***
 ```{r, echo=FALSE}
 par(mai=c(0,0,0,0))
-plot(net.precov, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+# plot(net.precov, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+make_D3_network(net.precov, charge = 0) # charge 0 to prevent nodes from falling into one another
 ```
 
 ### __Perfect isolation__ <br/>  Now let's imagine the other extreme, complete lock-down  {data-commentary-width=550}
@@ -87,9 +142,10 @@ What does that mean? Here the virus would not be able to spread from household t
 
 ***
 
-```{r emptynet, cache=TRUE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
+```{r emptynet, cache=FALSE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE}
 par(mai=c(0,0,0,0))
-plot(emptynet, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+# plot(emptynet, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+make_D3_network(emptynet, charge = 0) # charge 0 to prevent nodes from falling into one another
 ```
 
 
@@ -142,7 +198,8 @@ And hopefully, the deaths here won't be that high. First off, most households ar
 
 ```{r, echo=FALSE}
 par(mai=c(0,0,0,0))
-plot(net.essl, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+# plot(net.essl, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+make_D3_network(net.essl, charge = 0) # charge 0 to prevent nodes from falling into one another
 ```
 
 
@@ -178,7 +235,8 @@ If you are part of that large connected component, then now your household can r
 
 ```{r, echo=FALSE}
 par(mai=c(0,0,0,0))
-plot(net.comb.1, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+# plot(net.comb.1, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+make_D3_network(net.comb.1, charge = -1.5, group = essl) # charge 0 to prevent nodes from falling into one another
 ```
 
 ### __Visiting just one friend per household__ <br/> OK, maybe households with multiple people could alla gree that only one person can hang out with one friend?   {data-commentary-width=550}
@@ -206,7 +264,8 @@ And there are still **`r kpath.comb.2`** 3-paths, or **`r round(kpath.comb.2/kpa
 
 ```{r, echo=FALSE}
 par(mai=c(0,0,0,0))
-plot(net.comb.2, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+# plot(net.comb.2, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+make_D3_network(net.comb.2, charge = -10, group = essl) 
 ```
 
 
