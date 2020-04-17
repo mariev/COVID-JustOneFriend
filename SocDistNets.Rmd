@@ -53,8 +53,65 @@ Let's start by imagining back to the good old days before COVID-19.  People had 
 ## The Network
 
 ```{r pre-COVID, cache=TRUE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.height=4, fig.width=4, fig.align='center'}
+library(igraph)
+library(networkD3)
 library(statnet)
 library(sna)
+
+make_D3_network <- function(network, charge = -30,..., group = 1){
+  
+  connected_nodes <-
+    do.call('rbind', lapply(network$mel, function(x)
+      data.frame(x)))
+  node_names <-
+    do.call('rbind', lapply(network$val, function(x)
+      data.frame(x)))$vertex.names  
+  
+  if(!is.null(connected_nodes)){
+    links <-
+      data.frame(
+        source = connected_nodes[[2]],
+        target = connected_nodes[[1]],
+        value = 1
+      )
+  } else{
+    links <-
+      data.frame(
+        source = node_names,
+        target = node_names,
+        value = 0
+      )
+  }
+  
+
+  
+  nodes <-
+    data.frame(
+      name = node_names,
+      group = group,
+      size = 1
+    )
+      
+
+  
+  network_ig <- igraph::graph.data.frame(links,nodes,directed = FALSE)
+  network_ig_data <- networkD3::igraph_to_networkD3(network_ig)
+  network_ig_data$nodes$group = group
+  networkD3::forceNetwork(
+    Links = network_ig_data$links,
+    Nodes = network_ig_data$nodes,
+    NodeID = "name",
+    Group = "group",
+    Source = "source",
+    Target = "target",
+    Value = "value",
+    zoom = TRUE,
+    bounded = FALSE,
+    charge = charge,
+    opacity = 1, ...
+  )
+}
+
 set.seed(0)
 n <- 200
 emptynet <- network.initialize(n, directed=FALSE)
@@ -62,7 +119,11 @@ meandeg.precov <- 15
 fit.precov <- ergm(emptynet~edges, target.stats=meandeg.precov*n/2)
 net.precov <- simulate(fit.precov)
 par(mai=c(0,0,0,0))
-plot(net.precov, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+
+# i <- plot(net.precov, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+
+make_D3_network(net.precov)
+
 largcomp.precov <- sum(component.largest(net.precov))
 kpath.precov <- sna:::kpath.census(net.precov)$path.count[3,'Agg']/2
 ```
@@ -138,7 +199,10 @@ Now let's imagine a world at the other extreme---complete and utter lock-down, w
 
 ```{r emptynet, cache=TRUE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.height=4, fig.width=4, fig.align="center"}
 par(mai=c(0,0,0,0))
-plot(emptynet, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+# plot(emptynet, vertex.cex=1.5, mode="kamadakawai", vertex.col=3, edge.col="gray20")
+
+make_D3_network(emptynet, charge = 0) # charge 0 to prevent nodes from falling into one another
+
 ```
 **The virus would not be able to spread from household to household at all. Anyone who had it might pass it onto the other members of their household, and each of those people would either die or recover. But the virus could not spread to other households; it would quickly disappear.**
   
@@ -163,7 +227,7 @@ If we **color the households with an essential worker as blue**, that gives us..
 
 ## The Network
 
-```{r essl.net, cache=TRUE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.height=4, fig.width=4, fig.align="center"}
+```{r essl.net, cache=FALSE, echo=FALSE, warning=FALSE, error=FALSE, message=FALSE, fig.height=4, fig.width=4, fig.align="center"}
 meandeg.essl <- 4
 prop.essl <- 0.1
 essl <- rep(0, n)
@@ -176,7 +240,8 @@ fit.essl <- ergm(emptynet~edges+ nodematch("essl", diff=TRUE, levels=1),
 net.essl <- simulate(fit.essl, control = control.simulate(MCMC.burnin = 1e6))
 net.essl.el <- as.edgelist(net.essl)
 par(mai=c(0,0,0,0))
-plot(net.essl, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+# plot(net.essl, vertex.cex=1.5, vertex.col=3essl, edge.col="gray20")
+make_D3_network(net.essl,charge = -1, group = essl) # low charge to keep elements mostly together
 largcomp.essl <- sum(component.largest(net.essl))
 geo.essl <-  geo.sep(net.essl)
 ```
@@ -230,7 +295,8 @@ net.non.essl.1 <- simulate(fit.non.essl.1)
 net.comb.1 <- net.non.essl.1
 net.comb.1 <- add.edges(net.comb.1, tail=net.essl.el[,1], head=net.essl.el[,2])
 par(mai=c(0,0,0,0))
-plot(net.comb.1, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+# plot(net.comb.1, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+make_D3_network(net.comb.1, charge = -1.5,  group = essl)
 largcomp.comb.1 <- sum(component.largest(net.comb.1))
 geo.comb.1 <-  geo.sep(net.comb.1)
 ```
@@ -278,7 +344,9 @@ net.non.essl.2 <- simulate(fit.non.essl.2, control=control.simulate(MCMC.burnin=
 net.comb.2 <- net.non.essl.2
 net.comb.2 <- add.edges(net.comb.2, tail=net.essl.el[,1], head=net.essl.el[,2])
 par(mai=c(0,0,0,0))
-plot(net.comb.2, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+# plot(net.comb.2, vertex.cex=1.5, vertex.col=3+essl, edge.col="gray20")
+
+make_D3_network(net.comb.2, charge = -10,  group = essl)
 largcomp.comb.2 <- sum(component.largest(net.comb.2))
 geo.comb.2 <-  geo.sep(net.comb.2)
 ```
